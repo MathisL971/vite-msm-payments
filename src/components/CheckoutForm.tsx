@@ -46,7 +46,6 @@ const CheckoutForm = (props: CheckoutFormProps) => {
         Credit: debit.Debit.split(',').join('.'),
         Debit: '0',
         Nature: 3,
-        Reference: 'CH.#XXXX',
         IDFModePaiementDB: 2,
         ModePaiementDB: 2,
         Titre: 'Credit card',
@@ -54,8 +53,7 @@ const CheckoutForm = (props: CheckoutFormProps) => {
         IDFClient: 1,
         Code_Client: debit.Code_Client,
         Nom_Client: debit.Nom_Client,         
-        // DATE: '2024/09/18,
-        // Photo: '',
+        DATE: (new Date()).toISOString().split('T')[0].split('-').join(''),
       }
 
       const results: Entry[] = await createEntry(creditData);

@@ -123,8 +123,8 @@ function Invoice() {
               theme="warning"
               message={
                 lang === "fr"
-                  ? "Un paiement semble avoir déjà été effectué pour cette facture mais le solde n'a pas été mis à jour. Veuillez contacter le service client pour plus d'informations."
-                  : "A payment seems to have already been made for this invoice but the balance has not been updated. Please contact customer service for more information."
+                  ? "Un paiement semble avoir déjà été effectué pour cette facture mais la base de données n'a pas été mise à jour. Veuillez contacter le service client pour plus d'informations."
+                  : "A payment seems to have already been made for this invoice but the database has not been updated. Please contact customer service for more information."
               }
             />
           ) : paymentIntent.client_secret ? (

@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:5000/api/entries";
+const BASE_URL = "http://localhost:80/api/entries";
 
 const REQUEST_HEADERS = {
   "ngrok-skip-browser-warning": "true",

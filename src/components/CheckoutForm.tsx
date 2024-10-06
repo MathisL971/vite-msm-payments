@@ -4,17 +4,19 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import { useContext, useState } from "react";
-import { Entry } from "../types/types";
 import { LanguageContext } from "../contexts/LanguageContext";
-import { createEntry } from "../services/entries";
+import { createCreditEntry } from "../services/entries";
+import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "./ui/toast";
+import { PaymentIntent } from "@stripe/stripe-js";
 
 type CheckoutFormProps = {
-  debit: Entry;
-  setCredit: (credit: Entry) => void;
+  setPaymentIntent: (paymentIntent: PaymentIntent) => void;
 };
 
 const CheckoutForm = (props: CheckoutFormProps) => {
-  const { debit, setCredit } = props;
+  const { toast } = useToast();
+  const { setPaymentIntent } = props;
 
   const { lang } = useContext(LanguageContext);
 
@@ -25,46 +27,51 @@ const CheckoutForm = (props: CheckoutFormProps) => {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
     setLoading(true);
-
+  
     if (!stripe || !elements) {
+      toast({
+        variant: "destructive",
+        title: lang === "fr" ? "Une erreur s'est produite" : "Uh oh! Something went wrong.",
+        description: lang === "fr" ? "Le paiement a échoué. Veuillez réessayer." : "The payment failed. Please try again.",
+        action: <ToastAction altText="Try again" onClick={() => window.location.reload()}>{lang === "fr" ? "Recharger" : "Reload"}</ToastAction>
+      })
+      setLoading(false);
       return;
     }
+  
+    try {
+      const result = await stripe.confirmPayment({
+        elements,
+        redirect: "if_required",
+      });
 
-    const result = await stripe.confirmPayment({
-      elements,
-      redirect: "if_required",
-    });
-
-    if (result.error) {
-      console.log(result.error.message);
-    } else {
-      const creditData = {
-        IDFFactureDB: debit.IDFFactureDB,
-        NoFacture: debit.NoFacture,
-        Credit: debit.Debit.split(',').join('.'),
-        Debit: '0',
-        Nature: 3,
-        IDFModePaiementDB: 2,
-        ModePaiementDB: 2,
-        Titre: 'Credit card',
-        IDFCompte: 1,
-        IDFClient: 1,
-        Code_Client: debit.Code_Client,
-        Nom_Client: debit.Nom_Client,         
-        DATE: (new Date()).toISOString().split('T')[0].split('-').join(''),
+      if (!result) {
+        throw new Error(lang === "fr" ? "Une erreur s'est produite" : "Uh oh! Something went wrong.");
       }
+      
+      if (result.error) {
+        throw new Error(result.error.message);
+      }    
 
-      const results: Entry[] = await createEntry(creditData);
-
-      if (!results || results.length === 0) {
-        throw new Error('Error when inserting the entry');
+      try {
+        await createCreditEntry(result.paymentIntent.id);
+      } catch (error) {
+        console.error(error);
       }
-
-      setCredit(results[0]);
+      
+      setPaymentIntent(result.paymentIntent);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: lang === "fr" ? "Une erreur s'est produite" : "Uh oh! Something went wrong.",
+        description: lang === "fr" ? "Le paiement a échoué. Veuillez réessayer." : "The payment failed. Please try again.",
+        action: <ToastAction altText="Try again" onClick={() => window.location.reload()}>{lang === "fr" ? "Recharger" : "Reload"}</ToastAction>
+      })
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

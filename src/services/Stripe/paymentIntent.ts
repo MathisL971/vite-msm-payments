@@ -1,37 +1,35 @@
 import { Entry } from "../../types/types";
 
-const BASE_URL = "https://api.stripe.com/v1/payment_intents";
+const BASE_URL = "http://localhost:5000/api";
+
 const REQUEST_HEADERS = {
-  "Content-Type": "x-www-form-urlencoded",
-  Authorization:
-    "Bearer sk_test_51PsnWKBV4uK7jrIfRk2DEY3C6O4a4fsUWD4rPLzSVgPttOLQqJ8IEsjIyfmrEtaDP5PdZBc1Vy2gxvQunDg3tgHN00Wk2QNK2v",
+  "Content-Type": "application/json",
 };
 
-export const fetchFetchPaymentIntents = async () => {
-  const res = await fetch(BASE_URL, {
-    headers: REQUEST_HEADERS,
-  });
-  return await res.json();
-};
+export const fetchPaymentIntentByInvoice = async (
+  invoiceId: number
+) => {
+  const result = await fetch(
+    BASE_URL + "/fetch-payment-intent/" + invoiceId,
+    {
+      headers: REQUEST_HEADERS,
+    }
+  );
 
-export const fetchPaymentIntent = async (paymentIntentId: string) => {
-  const res = await fetch(BASE_URL + "/" + paymentIntentId, {
-    headers: REQUEST_HEADERS,
-  });
-  return await res.json();
+  return await result.json();
 };
 
 export const generatePaymentIntent = async (
   debit: Entry
 ) => {
   const result = await fetch(
-    BASE_URL + "?amount=" + parseInt(debit.Debit.split(',').join('')) + "&currency=cad&payment_method_types[]=card&metadata[invoice_id]=" + debit.NoFacture + "&receipt_email=lefrancmathis@gmail.com",
+    BASE_URL + "/create-payment-intent",
     {
       method: "POST",
+      body: JSON.stringify(debit),
       headers: REQUEST_HEADERS,
     }
   );
 
-  const paymentIntent = await result.json();
-  return paymentIntent;
+  return await result.json();
 };

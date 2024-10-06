@@ -1,9 +1,7 @@
 export type Entry = {
+  IDFComptabiliteDB: number,
   IDFFactureDB: number,
   NoFacture: number,
   Debit: string,
   Credit: string,
-  Code_Client: string,
-  Nom_Client: string,
-  DATE: string
 }

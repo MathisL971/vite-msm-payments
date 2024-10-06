@@ -1,5 +1,6 @@
 import {
   createFileRoute,
+  useParams,
 }
   from "@tanstack/react-router";
 
@@ -10,12 +11,15 @@ import SuccessAlert from "../../components/SuccessAlert";
 import { Spinner } from "flowbite-react";
 import { useContext, useEffect, useState } from "react";
 import {
+  fetchPaymentIntentByInvoice,
   generatePaymentIntent,
 } from "../../services/Stripe/paymentIntent";
 import { LanguageContext } from "../../contexts/LanguageContext";
 import ErrorAlert from "../../components/ErrorAlert";
 import { fetchEntriesBy } from "../../services/entries";
 import { Entry } from "../../types/types";
+import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 
 const stripePromise = loadStripe(
   "pk_test_51PsnWKBV4uK7jrIfvpQrJ9cWc69diKn2ed2lUQZwQM1AzAu4UuAgj225Q8bPwYpwffxxghxTXyhANhr3lcLqVScr00ajA8mqLK"
@@ -25,23 +29,19 @@ export const Route = createFileRoute("/invoices/$invoiceId")({
   loader: async ({ params: { invoiceId } }) => {
     const entries: Entry[] = await fetchEntriesBy('NoFacture', invoiceId.toString());
     const debit = entries.find((entry) => entry.Debit !== '0');
-
-    if (!debit) {
-      throw new Error("Facture " + invoiceId + " introuvable. Veuillez vérifier le numéro de facture et réessayer. Si le problème persiste, veuillez contacter le service client.");
-    }
-
     const credit = entries.find((entry) => entry.Credit !== '0');
 
     return {
       debit,
-      credit
+      credit,
     };
   },
   component: () => <Invoice />,
   errorComponent: ({ error }) => {
+    console.error(error);
     return (
       <div className="flex flex-col w-full flex-grow sm:w-3/4 md:w-2/3 lg:w-1/2 mx-auto items-start gap-4">
-        <ErrorAlert message={error.message} theme="failure" code={404} />
+        <ErrorAlert message={"Une erreur s'est produite. / An error occurred."} theme="failure" code={500} />
       </div>
     );
   },
@@ -59,27 +59,56 @@ export const Route = createFileRoute("/invoices/$invoiceId")({
 });
 
 function Invoice() {  
-  const { debit } = Route.useLoaderData();
+  const { toast } = useToast();
+
+  const { invoiceId } = useParams({
+    from: "/invoices/$invoiceId",
+  });
+  const { debit, credit } = Route.useLoaderData();
   const { lang } = useContext(LanguageContext);
 
-  const [credit, setCredit] = useState<Entry | undefined>(Route.useLoaderData().credit);
-  const [paymentIntent, setPaymentIntent] = useState<PaymentIntent | null>(
-    null
-  );
+  const [paymentIntent, setPaymentIntent] = useState<PaymentIntent | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    if (credit) {
+    if (!debit || credit) {
+      setLoading(false);
       return;
     }
 
-    generatePaymentIntent(debit)
-      .then((paymentIntent) => {
-        setPaymentIntent(paymentIntent);
+    fetchPaymentIntentByInvoice(debit.NoFacture)
+      .then(({ payment_intent: paymentIntent }) => {
+        if (paymentIntent && (paymentIntent.status === "succeeded" || paymentIntent.status === "requires_payment_method")) {
+          setPaymentIntent(paymentIntent);
+          setLoading(false);
+          return;
+        }
+      
+        generatePaymentIntent(debit)
+          .then(({ payment_intent: paymentIntent}) => {
+            setPaymentIntent(paymentIntent);
+            setLoading(false);
+          })
       })
       .catch((error) => {
         console.error(error);
-      });
-  }, [credit]);
+        toast({
+          variant: "destructive",
+          title: lang === "fr" ? "Une erreur s'est produite" : "Uh oh! Something went wrong.",
+          description: lang === "fr" ? "Une erreur s'est produite lors de la création de la tentative de paiement. Veuillez reessayer." : "There was an error generating your payment intent. Please try again.",
+          action: <ToastAction altText="Try again" onClick={() => window.location.reload()}>Try again</ToastAction>,
+        })
+        setLoading(false);
+      })
+  }, []);
+
+  if (!debit) {
+    return (
+      <div className="flex flex-col w-full flex-grow sm:w-3/4 md:w-2/3 lg:w-1/2 mx-auto items-start gap-4">
+        <ErrorAlert message={lang === "fr" ? "Facture " + invoiceId + " introuvable. Veuillez vérifier le numéro de facture et réessayer. Si le problème persiste, veuillez contacter le service client." : "Invoice " + invoiceId + " not found. Please check the invoice number and try again. If the issue persists, please contact the client service."} theme="failure" code={404} />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col w-full flex-grow sm:w-3/4 md:w-2/3 lg:w-1/2 mx-auto items-center justify-center gap-8">
@@ -108,9 +137,7 @@ function Invoice() {
           </p>
         </div>
         <div className="flex flex-col w-full">
-          {credit ? (
-            <SuccessAlert />
-          ) : !paymentIntent ? (
+          {loading ? (
             <div className="flex flex-col justify-center items-center h-40">
               <Spinner
                 aria-label="Center-aligned spinner example"
@@ -118,33 +145,25 @@ function Invoice() {
                 color={"info"}
               />
             </div>
-          ) : paymentIntent.status === "succeeded" ? (
-            <ErrorAlert
-              theme="warning"
-              message={
-                lang === "fr"
-                  ? "Un paiement semble avoir déjà été effectué pour cette facture mais la base de données n'a pas été mise à jour. Veuillez contacter le service client pour plus d'informations."
-                  : "A payment seems to have already been made for this invoice but the database has not been updated. Please contact customer service for more information."
-              }
-            />
-          ) : paymentIntent.client_secret ? (
+          ) : credit || paymentIntent && paymentIntent.status === "succeeded" ? (
+            <SuccessAlert />
+          ) : paymentIntent && paymentIntent.status === "requires_payment_method" ? (
             <Elements
               stripe={stripePromise}
               options={{
-                clientSecret: paymentIntent.client_secret,
+                clientSecret: paymentIntent.client_secret!,
                 locale: lang,
               }}
             >
-              <CheckoutForm debit={debit} setCredit={setCredit} />
+              <CheckoutForm setPaymentIntent={setPaymentIntent} />
             </Elements>
           ) : (
             <ErrorAlert
               theme="failure"
-              code={500}
               message={
                 lang === "fr"
-                  ? "Impossible d'initialiser une tentative de paiement."
-                  : "Unable to initialize a payment attempt."
+                  ? "Une erreur s'est produite lors de la création de la tentative de paiement. Veuillez reessayer."
+                  : "There was an error generating your payment intent. Please try again."
               }
             />
           )}

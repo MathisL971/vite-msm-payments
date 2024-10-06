@@ -10,17 +10,24 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@radix-ui/react-toast": "^1.2.2",
     "@stripe/react-stripe-js": "^2.8.0",
     "@stripe/stripe-js": "^4.3.0",
     "@tanstack/react-router": "^1.51.2",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
     "flowbite-react": "^0.10.1",
+    "lucide-react": "^0.447.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.5.3",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
     "@tanstack/router-devtools": "^1.51.2",
     "@tanstack/router-plugin": "^1.51.0",
+    "@types/node": "^22.7.4",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-basic-ssl": "^1.1.0",
